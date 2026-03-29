@@ -13,6 +13,11 @@ interface CreateTransportistaResult {
   temporaryPassword: string
 }
 
+const LOGIN_ATTEMPTS_KEY = 'loginAttempts'
+const LOGIN_BLOCKED_UNTIL_KEY = 'loginBlockedUntil'
+const MAX_LOGIN_ATTEMPTS = 3
+const LOGIN_BLOCK_DURATION_MS = 5 * 60 * 1000
+
 export const authService = {
   // Login
   login: async (credentials: LoginCredentials): Promise<User | null> => {
@@ -83,6 +88,55 @@ export const authService = {
   // Logout
   logout: () => {
     localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+  },
+
+  clearSession: () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+  },
+
+  isLoginBlocked: (): { blocked: boolean; remainingMs: number } => {
+    const blockedUntilRaw = localStorage.getItem(LOGIN_BLOCKED_UNTIL_KEY)
+    if (!blockedUntilRaw) {
+      return { blocked: false, remainingMs: 0 }
+    }
+
+    const blockedUntil = Number(blockedUntilRaw)
+    const now = Date.now()
+
+    if (Number.isNaN(blockedUntil) || blockedUntil <= now) {
+      localStorage.removeItem(LOGIN_BLOCKED_UNTIL_KEY)
+      localStorage.removeItem(LOGIN_ATTEMPTS_KEY)
+      return { blocked: false, remainingMs: 0 }
+    }
+
+    return { blocked: true, remainingMs: blockedUntil - now }
+  },
+
+  registerFailedLoginAttempt: (): { blocked: boolean; attemptsRemaining: number; remainingMs: number } => {
+    const currentAttempts = Number(localStorage.getItem(LOGIN_ATTEMPTS_KEY) || '0')
+    const nextAttempts = Number.isNaN(currentAttempts) ? 1 : currentAttempts + 1
+
+    if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {
+      const blockedUntil = Date.now() + LOGIN_BLOCK_DURATION_MS
+      localStorage.setItem(LOGIN_ATTEMPTS_KEY, String(nextAttempts))
+      localStorage.setItem(LOGIN_BLOCKED_UNTIL_KEY, String(blockedUntil))
+      return { blocked: true, attemptsRemaining: 0, remainingMs: LOGIN_BLOCK_DURATION_MS }
+    }
+
+    localStorage.setItem(LOGIN_ATTEMPTS_KEY, String(nextAttempts))
+
+    return {
+      blocked: false,
+      attemptsRemaining: MAX_LOGIN_ATTEMPTS - nextAttempts,
+      remainingMs: 0,
+    }
+  },
+
+  clearLoginAttempts: () => {
+    localStorage.removeItem(LOGIN_ATTEMPTS_KEY)
+    localStorage.removeItem(LOGIN_BLOCKED_UNTIL_KEY)
   },
 
   // Verificar si está autenticado

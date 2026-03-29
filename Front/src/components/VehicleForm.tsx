@@ -51,7 +51,9 @@ function VehicleForm({ open, onClose, onSubmit, operatorId }: VehicleFormProps) 
 
     if (!formData.patente.trim()) newErrors.patente = 'Requerido'
     if (!formData.marca.trim()) newErrors.marca = 'Requerido'
-    if (!formData.capacidadCarga || isNaN(Number(formData.capacidadCarga))) {
+    if (!formData.capacidadCarga.trim()) {
+      newErrors.capacidadCarga = 'Requerido'
+    } else if (isNaN(Number(formData.capacidadCarga))) {
       newErrors.capacidadCarga = 'Debe ser un número válido'
     }
 
@@ -152,7 +154,7 @@ function VehicleForm({ open, onClose, onSubmit, operatorId }: VehicleFormProps) 
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={loading || !formData.patente || !formData.marca || !formData.capacidadCarga}
+          disabled={loading}
         >
           {loading ? <CircularProgress size={24} /> : 'Registrar'}
         </Button>

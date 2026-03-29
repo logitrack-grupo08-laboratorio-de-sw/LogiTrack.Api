@@ -43,6 +43,13 @@ function LoginPage({ onLogin }: LoginPageProps) {
     setLoading(true)
     setError('')
 
+    const blockStatus = authService.isLoginBlocked()
+    if (blockStatus.blocked) {
+      setError('Usuario bloqueado temporalmente por intentos fallidos. Intentá nuevamente en unos minutos.')
+      setLoading(false)
+      return
+    }
+
     if (!credentials.email || !credentials.password) {
       setError('Por favor completá todos los campos')
       setLoading(false)
@@ -58,10 +65,16 @@ function LoginPage({ onLogin }: LoginPageProps) {
     try {
       const user = await authService.login(credentials)
       if (user) {
+        authService.clearLoginAttempts()
         onLogin(user)
         navigate(user.role === 'transportista' ? '/transportista' : '/app')
       } else {
-        setError('Email o contraseña incorrectos')
+        const attemptStatus = authService.registerFailedLoginAttempt()
+        if (attemptStatus.blocked) {
+          setError('Usuario bloqueado temporalmente por intentos fallidos. Intentá nuevamente en unos minutos.')
+        } else {
+          setError(`Email o contraseña incorrectos. Te quedan ${attemptStatus.attemptsRemaining} intento(s).`)
+        }
       }
     } catch {
       setError('Error al iniciar sesión')

@@ -10,11 +10,13 @@ import Layout from './components/Layout'
 import RoutesDashboard from './pages/transportista/RoutesDashboard'
 import RouteDetail from './pages/transportista/RouteDetail'
 import LandingPage from './pages/landing/LandingPage'
+import { authService } from './services/authService'
 import type { User } from './types'
 
 function App() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sessionExpired, setSessionExpired] = useState(false)
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user')
@@ -24,14 +26,30 @@ function App() {
     setLoading(false)
   }, [])
 
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setUser(null)
+      setSessionExpired(true)
+      authService.clearSession()
+    }
+
+    window.addEventListener('auth:session-expired', handleSessionExpired)
+
+    return () => {
+      window.removeEventListener('auth:session-expired', handleSessionExpired)
+    }
+  }, [])
+
   const handleLogin = (userData: User) => {
     setUser(userData)
+    setSessionExpired(false)
     localStorage.setItem('user', JSON.stringify(userData))
   }
 
   const handleLogout = () => {
     setUser(null)
-    localStorage.removeItem('user')
+    setSessionExpired(false)
+    authService.logout()
   }
 
   if (loading) {
@@ -68,7 +86,7 @@ function App() {
             ) : user ? (
               <Navigate to="/app" />
             ) : (
-              <Navigate to="/" />
+              <Navigate to={sessionExpired ? '/login' : '/'} />
             )
           }
         >
@@ -85,7 +103,7 @@ function App() {
                 <Layout user={user} onLogout={handleLogout} />
               )
             ) : (
-              <Navigate to="/" />
+              <Navigate to={sessionExpired ? '/login' : '/'} />
             )
           }
         >

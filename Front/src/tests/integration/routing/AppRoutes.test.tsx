@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../../pages/landing/LandingPage', () => ({ default: () => <div>LANDING_PAGE</div> }))
@@ -27,7 +27,27 @@ describe('App route guards', () => {
     expect(await screen.findByText('LANDING_PAGE')).toBeInTheDocument()
   })
 
-  it('CP-12 pendiente funcional: expiracion de sesion no esta implementada en App', () => {
-    expect(true).toBe(true)
+  it('CP-12 expira sesion activa y redirige a login', async () => {
+    localStorage.setItem(
+      'user',
+      JSON.stringify({
+        id: 'u-1',
+        name: 'Florencia',
+        lastname: 'Paez',
+        email: 'florencia@gmail.com',
+        dni: '11111111',
+        role: 'operador',
+      }),
+    )
+
+    render(<App />)
+
+    expect(await screen.findByText('LAYOUT_WRAPPER')).toBeInTheDocument()
+
+    window.dispatchEvent(new CustomEvent('auth:session-expired'))
+
+    await waitFor(async () => {
+      expect(await screen.findByText('LOGIN_PAGE')).toBeInTheDocument()
+    })
   })
 })

@@ -19,6 +19,19 @@ const mockedVehicleService = vehicleService as unknown as {
 describe('VehicleForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockedVehicleService.patenteExists.mockResolvedValue(false)
+  })
+
+  it('CP-61 valida campos obligatorios vacios en alta de vehiculo', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+
+    render(<VehicleForm open={true} onClose={vi.fn()} onSubmit={onSubmit} operatorId="op-1" />)
+
+    await user.click(screen.getByRole('button', { name: 'Registrar' }))
+
+    expect(await screen.findAllByText('Requerido')).toHaveLength(3)
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 
   it('CP-32 y CP-60 bloquea registro cuando patente ya existe', async () => {
@@ -38,27 +51,24 @@ describe('VehicleForm', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
-  it('CP-34 y CP-62 bloquea registro con capacidad no numerica', async () => {
+  it('CP-34 y CP-62 bloquea registro cuando capacidad no es valida', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue(undefined)
-
-    mockedVehicleService.patenteExists.mockResolvedValue(false)
 
     render(<VehicleForm open={true} onClose={vi.fn()} onSubmit={onSubmit} operatorId="op-1" />)
 
     await user.type(screen.getByLabelText('Patente'), 'AB123CD')
     await user.type(screen.getByLabelText('Marca'), 'Ford')
     await user.type(screen.getByLabelText('Capacidad de Carga (kg)'), 'abc')
+    await user.click(screen.getByRole('button', { name: 'Registrar' }))
 
-    expect(screen.getByRole('button', { name: 'Registrar' })).toBeDisabled()
+    expect(await screen.findByText('Requerido')).toBeInTheDocument()
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
   it('CP-31 y CP-59 registra vehiculo exitosamente', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue(undefined)
-
-    mockedVehicleService.patenteExists.mockResolvedValue(false)
 
     render(<VehicleForm open={true} onClose={vi.fn()} onSubmit={onSubmit} operatorId="op-1" />)
 

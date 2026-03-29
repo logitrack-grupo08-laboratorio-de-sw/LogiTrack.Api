@@ -27,7 +27,13 @@ builder.Services.AddCors(options =>
 
 var connectionString = builder.Configuration.GetConnectionString("PostgresConnection");
 
-Console.WriteLine($"Connection String: {connectionString}"); // Agrega esta línea para verificar la cadena de conexión
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "Falta la configuracion ConnectionStrings:PostgresConnection. " +
+        "Definila en appsettings.json, appsettings.Development.json o variable de entorno."
+    );
+}
 
 // Configurar EF Core con PostgreSQL
 builder.Services.AddDbContext<LogiTrackDbContext>(options =>
@@ -55,14 +61,28 @@ app.UseSwaggerUI();
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    var context = services.GetRequiredService<LogiTrackDbContext>();
-    
-    // 1. Esto CREA las tablas basadas en tus clases C#
-    await context.Database.MigrateAsync(); 
-    
-    // 2. Esto CARGA los datos iniciales
-    var seeder = services.GetRequiredService<DatabaseSeeder>();
-    await seeder.SeedAsync();
+
+    try
+    {
+        var context = services.GetRequiredService<LogiTrackDbContext>();
+
+        // 1. Esto CREA las tablas basadas en tus clases C#
+        await context.Database.MigrateAsync();
+
+        // 2. Esto CARGA los datos iniciales
+        var seeder = services.GetRequiredService<DatabaseSeeder>();
+        await seeder.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        if (!app.Environment.IsDevelopment())
+        {
+            throw;
+        }
+
+        Console.WriteLine($"[Startup] No se pudo inicializar la base de datos: {ex.Message}");
+        Console.WriteLine("[Startup] La API continúa en modo desarrollo sin migraciones/seed.");
+    }
 }
 
 app.Run();
