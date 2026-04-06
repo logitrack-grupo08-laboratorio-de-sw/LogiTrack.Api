@@ -54,6 +54,23 @@ export const vehicleService = {
     }
   },
 
+  getVehiculoById: async (id: string): Promise<Vehicle | undefined> => {
+    try {
+
+      const response = await api.get(`/envios/vehiculos/${id}`)
+      
+      if(!response.data){
+        return undefined
+      }
+
+      return mapToVehicle(response.data)
+    } catch (error) {
+      console.error('Get vehicle by id error:', error)
+      return undefined
+    }
+  },
+
+
   getAllVehiclesByStatus: async (estado: string): Promise<Vehicle[]> => {
     try {
       const response = await api.get(`/envios/vehiculos?estado=${estado}`)

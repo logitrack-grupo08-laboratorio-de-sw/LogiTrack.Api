@@ -123,7 +123,7 @@ export default function VehicleDetail() {
     setLoading(true)
     try {
       const [v, allRoutes] = await Promise.all([
-        vehicleService.getVehicleById(vehicleId),
+        vehicleService.getVehiculoById(vehicleId),
         routeService.getAllRoutes(),
       ])
       if (!v) {
