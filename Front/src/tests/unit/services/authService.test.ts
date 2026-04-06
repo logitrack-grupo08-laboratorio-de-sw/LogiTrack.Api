@@ -60,11 +60,16 @@ describe('authService', () => {
       },
     })
 
-    const user = await authService.login({ email: 'florencia@gmail.com', password: '12345678' })
+    const user = await authService.login({
+      email: 'florencia@gmail.com',
+      password: '12345678',
+      recaptchaToken: 'captcha-token',
+    })
 
     expect(mockedApi.post).toHaveBeenCalledWith('/auth/login', {
       Email: 'florencia@gmail.com',
       Password: '12345678',
+      RecaptchaToken: 'captcha-token',
     })
     expect(localStorage.getItem('authToken')).toBe('jwt-token')
     expect(user).toMatchObject({
@@ -79,7 +84,11 @@ describe('authService', () => {
   it('CP-07 y CP-08 devuelve null cuando credenciales son invalidas', async () => {
     mockedApi.post.mockRejectedValueOnce(new Error('Unauthorized'))
 
-    const user = await authService.login({ email: 'example@gmail.com', password: '888888' })
+    const user = await authService.login({
+      email: 'example@gmail.com',
+      password: '888888',
+      recaptchaToken: 'captcha-token',
+    })
 
     expect(user).toBeNull()
     expect(localStorage.getItem('authToken')).toBeNull()

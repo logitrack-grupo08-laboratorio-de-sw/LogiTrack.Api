@@ -17,6 +17,7 @@ import {
   Stack,
   TextField,
   Typography,
+  Snackbar,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import BadgeIcon from '@mui/icons-material/Badge'
@@ -45,8 +46,12 @@ function TransportistasList({ userRole }: TransportistsListProps) {
   const [routes, setRoutes] = useState<Route[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [toast, setToast] = useState<{
+    open: boolean
+    message: string
+    severity: 'success' | 'info' | 'warning' | 'error'
+  }>({ open: false, message: '', severity: 'success' })
 
   const [openCreateDialog, setOpenCreateDialog] = useState(false)
   const [openLicenciaDialog, setOpenLicenciaDialog] = useState(false)
@@ -63,6 +68,18 @@ function TransportistasList({ userRole }: TransportistsListProps) {
   const [formError, setFormError] = useState('')
   const [licenciaValue, setLicenciaValue] = useState('')
   const [estadoValue, setEstadoValue] = useState<TransportistaEstado>('Suspendido')
+
+  const showToast = (
+    message: string,
+    severity: 'success' | 'info' | 'warning' | 'error' = 'success',
+  ) => {
+    setToast({ open: true, message, severity })
+  }
+
+  const closeToast = () => {
+    setToast((prev) => ({ ...prev, open: false, message: '' }))
+    setFormError('')
+  }
 
   useEffect(() => {
     loadTransportistas()
@@ -143,14 +160,19 @@ function TransportistasList({ userRole }: TransportistsListProps) {
 
       if (!created) {
         setFormError('No se pudo registrar el transportista.')
+        showToast('No se pudo registrar el transportista.', 'error')
         return
       }
 
       await loadTransportistas()
-      setSuccessMessage(
+      showToast(
         `Transportista registrado. Credenciales de acceso: ${created.user.email}. Contraseña temporal: ${created.temporaryPassword}`,
+        'success',
       )
       setOpenCreateDialog(false)
+    } catch {
+      setFormError('Ocurrió un error al registrar el transportista.')
+      showToast('Ocurrió un error al registrar el transportista.', 'error')
     } finally {
       setSubmitting(false)
     }
@@ -176,11 +198,16 @@ function TransportistasList({ userRole }: TransportistsListProps) {
       const updated = await authService.updateTransportistaLicencia(selectedTransportista.id, licenciaValue.trim())
       if (!updated) {
         setFormError('No se pudo actualizar la licencia.')
+        showToast('No se pudo actualizar la licencia.', 'error')
         return
       }
       await loadTransportistas()
       setOpenLicenciaDialog(false)
       setSelectedTransportista(null)
+      showToast('Licencia actualizada correctamente', 'info')
+    } catch {
+      setFormError('Ocurrió un error al actualizar la licencia.')
+      showToast('Ocurrió un error al actualizar la licencia.', 'error')
     } finally {
       setSubmitting(false)
     }
@@ -202,11 +229,19 @@ function TransportistasList({ userRole }: TransportistsListProps) {
       const updated = await authService.updateTransportistaEstado(selectedTransportista.id, estadoValue)
       if (!updated) {
         setFormError('No se pudo cambiar el estado del transportista.')
+        showToast('No se pudo cambiar el estado del transportista.', 'error')
         return
       }
       await loadTransportistas()
       setOpenEstadoDialog(false)
       setSelectedTransportista(null)
+      showToast(
+        `Estado de transportista actualizado a ${estadoValue}`,
+        estadoValue === 'Activo' ? 'success' : 'warning',
+      )
+    } catch {
+      setFormError('Ocurrió un error al cambiar el estado del transportista.')
+      showToast('Ocurrió un error al cambiar el estado del transportista.', 'error')
     } finally {
       setSubmitting(false)
     }
@@ -235,11 +270,6 @@ function TransportistasList({ userRole }: TransportistsListProps) {
         </Box>
 
         {error && <Alert severity="error">{error}</Alert>}
-        {successMessage && (
-          <Alert severity="success" onClose={() => setSuccessMessage('')}>
-            {successMessage}
-          </Alert>
-        )}
 
         {transportistas.length === 0 ? (
           <Alert severity="info">No hay transportistas registrados</Alert>
@@ -434,6 +464,22 @@ function TransportistasList({ userRole }: TransportistsListProps) {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={4500}
+        onClose={closeToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          severity={toast.severity}
+          variant="filled"
+          onClose={closeToast}
+          sx={{ width: '100%' }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

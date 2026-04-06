@@ -1,5 +1,6 @@
 
 using System.ComponentModel.DataAnnotations;
+using Back.Application.Abstractions;
 using Back.Application.Services;
 using Back.Domain.Models;
 using Back.Domain.Repositories;
@@ -18,12 +19,18 @@ namespace Back.Controllers
         private readonly AuthService _authService;
         private readonly IUserRepository _userRepository;
         private readonly LogiTrackDbContext _context;
+        private readonly IRecaptchaValidationService _recaptchaValidationService;
 
-        public AuthController(AuthService authService, IUserRepository userRepository, LogiTrackDbContext context)
+        public AuthController(
+            AuthService authService,
+            IUserRepository userRepository,
+            LogiTrackDbContext context,
+            IRecaptchaValidationService recaptchaValidationService)
         {
             _authService = authService;
             _userRepository = userRepository;
             _context = context;
+            _recaptchaValidationService = recaptchaValidationService;
         }
 
         /// <summary>
@@ -40,9 +47,27 @@ namespace Back.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
         {
-            var result = await _authService.Login(request);
+            var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var captchaIsValid = await _recaptchaValidationService.ValidateAsync(
+                request.RecaptchaToken,
+                remoteIp,
+                HttpContext.RequestAborted);
 
-            return Ok(result);
+            if (!captchaIsValid)
+            {
+                return BadRequest("Captcha inválido o vencido. Reintentá nuevamente.");
+            }
+
+            try
+            {
+                var result = await _authService.Login(request);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Unauthorized(ex.Message);
+            }
+
         }
 
 
@@ -263,11 +288,14 @@ namespace Back.Controllers
     {
         [Required]
         [EmailAddress(ErrorMessage = "El correo electrónico no es válido.")]
-        public string Email { get; set; }
+        public string Email { get; set; } = string.Empty;
 
         [Required]
         [MinLength(8, ErrorMessage = "La contraseña debe tener al menos 8 caracteres.")]
-        public string Password { get; set; }
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El captcha es obligatorio.")]
+        public string RecaptchaToken { get; set; } = string.Empty;
     }
 
     public class LoginResponse

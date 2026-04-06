@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState, type ComponentType, type SyntheticEvent } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Box,
   TextField,
@@ -12,25 +12,67 @@ import {
   Divider,
   Stack,
   Chip,
+  Snackbar,
 } from '@mui/material'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import LocalShippingIcon from '@mui/icons-material/LocalShipping'
+import ReCAPTCHA from 'react-google-recaptcha'
 import { authService } from '../services/authService'
 import type { User, LoginCredentials } from '../types'
 
 interface LoginPageProps {
   onLogin: (user: User) => void
+  sessionExpired?: boolean
 }
 
-function LoginPage({ onLogin }: LoginPageProps) {
+interface LoginLocationState {
+  registrationSuccess?: boolean
+  registeredEmail?: string
+}
+
+const DEMO_PASSWORD = 'kjkszpj1234'
+const DEFAULT_RECAPTCHA_SITE_KEY = '6LdRraUsAAAAABDom6H8iyjAqSoigIn5qPgQXqfR'
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || DEFAULT_RECAPTCHA_SITE_KEY
+const RecaptchaWidget = ReCAPTCHA as unknown as ComponentType<{
+  sitekey: string
+  onChange: (token: string | null) => void
+  onExpired: () => void
+}>
+const demoUsers = [
+  { label: 'Supervisor · Carlos', email: 'carlos.rodriguez@logitrack.com', color: 'error' as const },
+  { label: 'Supervisor · Ana', email: 'ana.martinez@logitrack.com', color: 'error' as const },
+  { label: 'Operador · Juan', email: 'juan.perez@logitrack.com', color: 'primary' as const },
+  { label: 'Operador · Maria', email: 'maria.gomez@logitrack.com', color: 'primary' as const },
+  { label: 'Transportista · Luis', email: 'luis.lopez@logitrack.com', color: 'success' as const },
+  { label: 'Transportista · Sofia', email: 'sofia.fernandez@logitrack.com', color: 'success' as const },
+]
+
+function LoginPage({ onLogin, sessionExpired = false }: LoginPageProps) {
+  const location = useLocation()
   const showDemoUsers = import.meta.env.VITE_SHOW_DEMO_USERS === 'true'
   const navigate = useNavigate()
-  const [credentials, setCredentials] = useState<LoginCredentials>({
+  const locationState = location.state as LoginLocationState | null
+  const [credentials, setCredentials] = useState<Omit<LoginCredentials, 'recaptchaToken'>>({
     email: '',
     password: '',
   })
+  const [captchaToken, setCaptchaToken] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [registrationToast, setRegistrationToast] = useState({
+    open: false,
+    message: '',
+  })
+
+  useEffect(() => {
+    if (!locationState?.registrationSuccess) return
+
+    const message = `Cuenta creada correctamente${locationState.registeredEmail ? ` para ${locationState.registeredEmail}` : ''}. Iniciá sesión para continuar.`
+    setRegistrationToast({ open: true, message })
+
+    // Limpiar el estado para no volver a mostrar el toast al regresar a /login.
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location.pathname, locationState, navigate])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -55,24 +97,45 @@ function LoginPage({ onLogin }: LoginPageProps) {
       return
     }
 
+    if (!captchaToken) {
+      setError('Completá el captcha para continuar')
+      setLoading(false)
+      return
+    }
+
     try {
-      const user = await authService.login(credentials)
+      const user = await authService.login({
+        email: credentials.email,
+        password: credentials.password,
+        recaptchaToken: captchaToken,
+      })
+
       if (user) {
         onLogin(user)
         navigate(user.role === 'transportista' ? '/transportista' : '/app')
       } else {
         setError('Email o contraseña incorrectos')
       }
-    } catch {
-      setError('Error al iniciar sesión')
+    } catch (err: any) {
+      setError(err?.message || 'Error al iniciar sesión')
     } finally {
       setLoading(false)
     }
   }
 
-  const fillDemo = (email: string) => {
-    setCredentials({ email, password: 'password123' })
+  const handleCaptchaChange = (token: string | null) => {
+    setCaptchaToken(token ?? '')
     setError('')
+  }
+
+  const fillDemo = (email: string) => {
+    setCredentials({ email, password: DEMO_PASSWORD })
+    setError('')
+  }
+
+  const handleRegistrationToastClose = (_event: Event | SyntheticEvent, reason?: string) => {
+    if (reason === 'clickaway') return
+    setRegistrationToast((prev) => ({ ...prev, open: false }))
   }
 
   return (
@@ -134,6 +197,12 @@ function LoginPage({ onLogin }: LoginPageProps) {
             </Alert>
           )}
 
+          {!error && sessionExpired && (
+            <Alert severity="warning" sx={{ mb: 2.5 }}>
+              Tu sesión expiró por inactividad. Iniciá sesión nuevamente para continuar.
+            </Alert>
+          )}
+
           <form onSubmit={handleSubmit} noValidate>
             <Stack spacing={2.5}>
               <TextField
@@ -156,6 +225,23 @@ function LoginPage({ onLogin }: LoginPageProps) {
                 disabled={loading}
                 fullWidth
               />
+
+              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                <Box
+                  sx={{
+                    transform: { xs: 'scale(0.85)', sm: 'scale(1)' },
+                    transformOrigin: 'center',
+                    height: { xs: 66, sm: 78 },
+                  }}
+                >
+                  <RecaptchaWidget
+                    sitekey={RECAPTCHA_SITE_KEY}
+                    onChange={handleCaptchaChange}
+                    onExpired={() => setCaptchaToken('')}
+                  />
+                </Box>
+              </Box>
+
               <Button
                 type="submit"
                 variant="contained"
@@ -200,38 +286,41 @@ function LoginPage({ onLogin }: LoginPageProps) {
               </Divider>
 
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5, textAlign: 'center' }}>
-                Clic en un rol para autocompletar · contraseña: <strong>password123</strong>
+                Clic en un usuario para autocompletar · contraseña: <strong>{DEMO_PASSWORD}</strong>
               </Typography>
 
               <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap>
-                <Chip
-                  label="Supervisor"
-                  color="error"
-                  variant="outlined"
-                  size="small"
-                  onClick={() => fillDemo('supervisor@logitrack.com')}
-                  sx={{ cursor: 'pointer', fontWeight: 600 }}
-                />
-                <Chip
-                  label="Operador"
-                  color="primary"
-                  variant="outlined"
-                  size="small"
-                  onClick={() => fillDemo('operador@logitrack.com')}
-                  sx={{ cursor: 'pointer', fontWeight: 600 }}
-                />
-                <Chip
-                  label="Transportista"
-                  color="success"
-                  variant="outlined"
-                  size="small"
-                  onClick={() => fillDemo('transportista@logitrack.com')}
-                  sx={{ cursor: 'pointer', fontWeight: 600 }}
-                />
+                {demoUsers.map((demoUser) => (
+                  <Chip
+                    key={demoUser.email}
+                    label={demoUser.label}
+                    color={demoUser.color}
+                    variant="outlined"
+                    size="small"
+                    onClick={() => fillDemo(demoUser.email)}
+                    sx={{ cursor: 'pointer', fontWeight: 600 }}
+                  />
+                ))}
               </Stack>
             </Box>
           )}
         </Card>
+
+        <Snackbar
+          open={registrationToast.open}
+          autoHideDuration={4500}
+          onClose={handleRegistrationToastClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert
+            severity="success"
+            variant="filled"
+            onClose={handleRegistrationToastClose}
+            sx={{ width: '100%' }}
+          >
+            {registrationToast.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </Box>
    ) 

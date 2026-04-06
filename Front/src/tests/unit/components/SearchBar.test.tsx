@@ -35,4 +35,19 @@ describe('SearchBar', () => {
 
     expect(onSearch).toHaveBeenCalledWith('')
   })
+
+  it('restablece resultados al borrar manualmente todo el input', async () => {
+    const user = userEvent.setup()
+    const onSearch = vi.fn().mockResolvedValue(undefined)
+
+    render(<SearchBar onSearch={onSearch} />)
+
+    const input = screen.getByPlaceholderText('Buscar por ID de tracking...')
+    await user.type(input, 'LOG-2024-001')
+    await user.click(screen.getByRole('button', { name: 'Buscar' }))
+    await user.clear(input)
+
+    expect(onSearch).toHaveBeenNthCalledWith(1, 'LOG-2024-001')
+    expect(onSearch).toHaveBeenLastCalledWith('')
+  })
 })

@@ -3,20 +3,17 @@ using System;
 using Back.Infrastructure.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Back.Migrations
+namespace Back.Infrastructure.Database
 {
     [DbContext(typeof(LogiTrackDbContext))]
-    [Migration("20260330004130_InitialMigration")]
-    partial class InitialMigration
+    partial class LogiTrackDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -47,8 +44,14 @@ namespace Back.Migrations
                     b.Property<string>("Descripcion")
                         .HasColumnType("text");
 
+                    b.Property<float>("Distancia")
+                        .HasColumnType("real");
+
                     b.Property<double>("Peso")
                         .HasColumnType("double precision");
+
+                    b.Property<float>("Prioridad")
+                        .HasColumnType("real");
 
                     b.Property<string>("RazonCancelacion")
                         .HasColumnType("text");

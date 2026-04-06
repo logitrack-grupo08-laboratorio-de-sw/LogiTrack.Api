@@ -11,6 +11,16 @@ interface SearchBarProps {
 function SearchBar({ onSearch, loading = false, placeholder = 'Buscar por ID de tracking...' }: SearchBarProps) {
   const [query, setQuery] = useState('')
 
+  const handleInputChange = (value: string) => {
+    const hadSearchValue = query.trim().length > 0
+    setQuery(value)
+
+    // If user manually erases the input, reset results like the "Limpiar" action.
+    if (hadSearchValue && value.trim().length === 0) {
+      void onSearch('')
+    }
+  }
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     if (query.trim()) {
@@ -29,7 +39,7 @@ function SearchBar({ onSearch, loading = false, placeholder = 'Buscar por ID de 
         <TextField
           placeholder={placeholder}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => handleInputChange(e.target.value)}
           fullWidth
           disabled={loading}
           size="small"

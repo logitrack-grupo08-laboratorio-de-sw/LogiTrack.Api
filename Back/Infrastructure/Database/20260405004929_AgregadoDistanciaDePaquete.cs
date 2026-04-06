@@ -3,10 +3,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Back.Migrations
+namespace Back.Infrastructure.Database
 {
     /// <inheritdoc />
-    public partial class InitialMigration : Migration
+    public partial class AgregadoDistanciaDePaquete : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -99,6 +99,7 @@ namespace Back.Migrations
                     Peso = table.Column<double>(type: "double precision", nullable: false),
                     Altura = table.Column<double>(type: "double precision", nullable: false),
                     Ancho = table.Column<double>(type: "double precision", nullable: false),
+                    Prioridad = table.Column<float>(type: "real", nullable: false),
                     CreadoEn = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     Status = table.Column<int>(type: "integer", nullable: false),
                     Remitente_Nombre = table.Column<string>(type: "text", nullable: false),
@@ -119,6 +120,7 @@ namespace Back.Migrations
                     Destinatario_Ubicacion_Longitud = table.Column<double>(type: "double precision", nullable: true),
                     Descripcion = table.Column<string>(type: "text", nullable: true),
                     RazonCancelacion = table.Column<string>(type: "text", nullable: true),
+                    Distancia = table.Column<float>(type: "real", nullable: false),
                     RutaId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>

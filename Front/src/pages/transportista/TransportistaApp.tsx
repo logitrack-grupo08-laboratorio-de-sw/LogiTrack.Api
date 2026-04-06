@@ -24,7 +24,7 @@ export default function TransportistaApp({ user }: TransportistaAppProps) {
         open={state.snackbar.open}
         autoHideDuration={3500}
         onClose={hideSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert
           onClose={hideSnackbar}

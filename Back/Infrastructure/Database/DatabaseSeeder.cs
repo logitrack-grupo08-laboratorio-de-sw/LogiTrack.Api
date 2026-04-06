@@ -4,6 +4,41 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Back.Infrastructure.Database
 {
+
+    public class PesoGenerator
+    {
+        static readonly Random _random = new Random();
+
+        public static double GenerarPeso()
+        {
+
+            var randomValue = _random.NextDouble() * 100;
+
+            if (randomValue < 10)
+            {
+                // 10% de probabilidades: entre 40 y 55 kg
+                return _random.NextDouble() * 15 + 40;
+            }
+            else if (randomValue < 40)
+            {
+                // 30% de probabilidades: entre 0.5 y 5 kg (paquetes livianos)
+                return _random.NextDouble() * 4.5 + 0.5;
+            }
+            else if (randomValue < 80)
+            {
+                // 40% de probabilidades: entre 5 y 20 kg (paquetes medianos)
+                return _random.NextDouble() * 15 + 5;
+            }
+            else
+            {
+                // 20% de probabilidades: entre 20 y 40 kg (paquetes pesados)
+                return _random.NextDouble() * 20 + 20;
+            }
+
+        }
+    }
+
+
     public class DatabaseSeeder
     {
 
@@ -72,7 +107,7 @@ namespace Back.Infrastructure.Database
                 rutas.Add(rutaEspecifica);
             }
 
-            _context.Paquetes.AddRange([..PaquetesGenerator.GenerarPaquetes(20)]);
+            _context.Paquetes.AddRange([.. PaquetesGenerator.GenerarPaquetes(20)]);
             _context.Rutas.AddRange(rutas);
 
             await _context.SaveChangesAsync();
@@ -169,7 +204,7 @@ namespace Back.Infrastructure.Database
             return new Cliente(
                 nombres[_random.Next(nombres.Count)],
                 apellidos[_random.Next(apellidos.Count)],
-                new Direccion(calles[_random.Next(calles.Count)] + " " + _random.Next(100, 999), municipios[_random.Next(municipios.Count)], _random.Next(100, 9999).ToString(), null, CoordenadasGenerator.GenerarCoodenadasEnRadio(BuenosAires, 150))
+                new Direccion(calles[_random.Next(calles.Count)] + " " + _random.Next(100, 999), municipios[_random.Next(municipios.Count)], _random.Next(100, 9999).ToString(), null)
             );
         }
 
@@ -193,7 +228,7 @@ namespace Back.Infrastructure.Database
         public static List<Vehiculo> GenerarVehiculosEspecificos()
         {
             var result = new List<Vehiculo>();
-            
+
             var vehiculosData = new List<(string patente, string marca, int capacidad)>
             {
                 ("ABC123", "Ford", 1500),
@@ -239,14 +274,19 @@ namespace Back.Infrastructure.Database
 
             for (int i = 0; i < count; i++)
             {
+
+                double peso = PesoGenerator.GenerarPeso();
+
+                Cliente destino = GenerarCliente();
                 Paquete paquete = new Paquete(
-                    _random.NextDouble() * 20 + 0.5,
+                    peso,
                     _random.Next(10, 100),
                     _random.Next(10, 100),
                     GenerarCliente(),
-                    GenerarCliente(),
-                    PrioridadCalculator.CalcularPrioridad(_random.NextDouble() * 20 + 0.5, GenerarCliente().Direccion.Ubicacion!, false), // Prioridad calculada
-                    descripciones[_random.Next(descripciones.Count)]
+                    destino,
+                    PrioridadCalculator.CalcularPrioridad(peso, DistanciasService.CalcularDistancia(destino.Direccion.Ciudad)), // Prioridad calculada
+                    DistanciasService.CalcularDistancia(GenerarCliente().Direccion.Ciudad)
+                    ,descripciones[_random.Next(descripciones.Count)]
                 );
 
                 result.Add(paquete);
@@ -258,7 +298,7 @@ namespace Back.Infrastructure.Database
         public static List<Paquete> GenerarPaquetesEspecificos()
         {
             var result = new List<Paquete>();
-            
+
             var paquetesData = new List<(string codigo, string estado, string descripcion)>
             {
                 ("LOG-2024-001", "EnSucursal", "En espera de ser enviado"),
@@ -272,14 +312,17 @@ namespace Back.Infrastructure.Database
 
             foreach (var (codigo, estado, descripcion) in paquetesData)
             {
+
+                double peso = PesoGenerator.GenerarPeso();
                 Paquete paquete = new Paquete(
                     codigo,
-                    _random.NextDouble() * 20 + 0.5,
+                    peso,
                     _random.Next(10, 100),
                     _random.Next(10, 100),
                     GenerarCliente(),
                     GenerarCliente(),
-                    PrioridadCalculator.CalcularPrioridad(_random.NextDouble() * 20 + 0.5, GenerarCliente().Direccion.Ubicacion!, false),
+                    PrioridadCalculator.CalcularPrioridad(peso, DistanciasService.CalcularDistancia(GenerarCliente().Direccion.Ciudad)),
+                    DistanciasService.CalcularDistancia(GenerarCliente().Direccion.Ciudad),
                     descripcion
                 );
 
@@ -308,6 +351,7 @@ namespace Back.Infrastructure.Database
         }
 
     }
+
 
 
     public static class RutasGenerator
@@ -417,29 +461,6 @@ namespace Back.Infrastructure.Database
         public int CantidadVehiculos { get; set; } = 20;
         public int CantidadPaquetes { get; set; } = 150;
     }
-
-    public class CoordenadasGenerator
-    {
-        private static Random rand = new Random();
-        public static Ubicacion GenerarCoodenadasEnRadio(Ubicacion ubicacion, double maxRadiusKm)
-        {
-
-            // 111km por grado de latitud
-            // 111 * cos(lat) para longitud (aprox 91km en BA)
-            double kgPerLat = 111.0;
-            double kgPerLon = 111.0 * Math.Cos(ubicacion.Latitud * Math.PI / 180);
-
-            // Generar desfase en KM
-            double theta = rand.NextDouble() * 2 * Math.PI;
-            double dist = maxRadiusKm * Math.Sqrt(rand.NextDouble());
-
-            double deltaLat = dist * Math.Sin(theta) / kgPerLat;
-            double deltaLon = dist * Math.Cos(theta) / kgPerLon;
-
-            return new Ubicacion(ubicacion.Latitud + deltaLat, ubicacion.Longitud + deltaLon);
-        }
-    }
-
 
 
     public static class UsuarioGenerator
@@ -615,7 +636,7 @@ namespace Back.Infrastructure.Database
         public static List<Usuario> GenerarUsuariosEspecificos()
         {
             var result = new List<Usuario>();
-            
+
             var usuariosData = new List<(string nombre, string apellido, string rol)>
             {
                 ("juan", "perez", "Operador"),
@@ -630,7 +651,7 @@ namespace Back.Infrastructure.Database
             {
                 string email = $"{nombre}.{apellido}@logitrack.com";
                 string password = "kjkszpj1234";
-                
+
                 Usuario usuario;
                 string dni = random.Next(10000000, 99999999).ToString();
                 switch (rol)
@@ -647,7 +668,7 @@ namespace Back.Infrastructure.Database
                     default:
                         continue;
                 }
-                
+
                 result.Add(usuario);
             }
 

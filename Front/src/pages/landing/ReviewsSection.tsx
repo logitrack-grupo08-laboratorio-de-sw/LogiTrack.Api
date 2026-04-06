@@ -15,6 +15,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Snackbar,
 } from '@mui/material'
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote'
 import SendIcon from '@mui/icons-material/Send'
@@ -69,6 +70,10 @@ export default function ReviewsSection({ reviewsRef }: ReviewsSectionProps) {
     setSubmitted(true)
     setNrError('')
     setPage(0)
+  }
+
+  const closeSubmittedToast = () => {
+    setSubmitted(false)
   }
 
   return (
@@ -181,11 +186,6 @@ export default function ReviewsSection({ reviewsRef }: ReviewsSectionProps) {
               Tu opinión nos ayuda a mejorar y a que otros clientes tomen mejores decisiones.
             </Typography>
 
-            {submitted && (
-              <Alert severity="success" sx={{ mb: 3, borderRadius: '12px' }} onClose={() => setSubmitted(false)}>
-                ¡Gracias por tu reseña! Ya aparece en el listado.
-              </Alert>
-            )}
             {nrError && (
               <Alert severity="error" sx={{ mb: 3, borderRadius: '12px' }} onClose={() => setNrError('')}>
                 {nrError}
@@ -271,6 +271,17 @@ export default function ReviewsSection({ reviewsRef }: ReviewsSectionProps) {
             </Grid>
           </Card>
         </RevealBox>
+
+        <Snackbar
+          open={submitted}
+          autoHideDuration={3000}
+          onClose={closeSubmittedToast}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert severity="success" variant="filled" onClose={closeSubmittedToast}>
+            ¡Gracias por tu reseña! Ya aparece en el listado.
+          </Alert>
+        </Snackbar>
       </Container>
     </Box>
   )

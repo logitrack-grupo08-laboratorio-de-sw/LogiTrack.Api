@@ -13,12 +13,15 @@ namespace Back.Application.Services
         private readonly IUserRepository _userRepository;
         private readonly IRutasRepository _rutasRepository;
 
-        public EnviosService(IEnviosRepository enviosRepository, IUserRepository userRepository, IRutasRepository rutasRepository)
+        private readonly IMLPrioridadPrediction _mlPrioridadPrediction;
+
+        public EnviosService(IEnviosRepository enviosRepository, IUserRepository userRepository, IRutasRepository rutasRepository, IMLPrioridadPrediction mlPrioridadPrediction)
         {
             _rutasRepository = rutasRepository;
             _enviosRepository = enviosRepository;
             _userRepository = userRepository;
             _rutasRepository = rutasRepository;
+             _mlPrioridadPrediction = mlPrioridadPrediction;
         }
 
         public async Task RegistrarPaquete(RegistrarPaqueteRequest request)
@@ -32,7 +35,8 @@ namespace Back.Application.Services
                 0,
                 new Cliente(request.Remitente.Nombre, request.Remitente.Apellido, new Direccion(request.Remitente.Direccion, request.Remitente.Localidad, request.Remitente.CP)),
                 new Cliente(request.Destinatario.Nombre, request.Destinatario.Apellido, new Direccion(request.Destinatario.Direccion, request.Destinatario.Localidad, request.Destinatario.CP)),
-                1,
+                await _mlPrioridadPrediction.Predecir((float)request.Peso, DistanciasService.CalcularDistancia(request.Destinatario.Localidad)), // Prioridad usando ML
+                DistanciasService.CalcularDistancia(request.Destinatario.Localidad),
                 request.Comentarios
             );
 

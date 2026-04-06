@@ -230,6 +230,10 @@ export default function LandingPage() {
     comment: '',
   })
   const [reviewError, setReviewError] = useState('')
+
+  const closeReviewToast = () => {
+    setReviewSent(false)
+  }
   const [reviewSent, setReviewSent] = useState(false)
 
   const heroRef = useRef<HTMLElement | null>(null)
@@ -933,8 +937,8 @@ export default function LandingPage() {
         </Container>
       </Box>
 
-      <Snackbar open={reviewSent} autoHideDuration={2500} onClose={() => setReviewSent(false)}>
-        <Alert severity="success" variant="filled" onClose={() => setReviewSent(false)}>
+      <Snackbar open={reviewSent} autoHideDuration={2500} onClose={closeReviewToast}>
+        <Alert severity="success" variant="filled" onClose={closeReviewToast}>
           ¡Gracias! Tu reseña ya quedó visible en la página.
         </Alert>
       </Snackbar>

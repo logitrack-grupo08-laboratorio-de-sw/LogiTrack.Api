@@ -173,7 +173,7 @@ namespace Back.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [HttpGet("vehiculos/activos")]
-        public async Task<ActionResult<List<Vehiculo>>> GetVehiculos()
+        public async Task<ActionResult<List<Vehiculo>>> GetVehiculosActivos()
         {
             var vehiculos = await _vehiculoRepository.GetVehiculosActivos();
 
@@ -181,6 +181,21 @@ namespace Back.Controllers
 
             return Ok(vehiculos);
         }
+
+        /// <summary>
+        /// Obtiene todos los vehículos registrados con la posibilidad de filtrarlos por estado.
+        /// </summary>
+        /// <returns>Lista de todos los vehículos</returns>
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [HttpGet("vehiculos")]
+        public async Task<ActionResult<List<Vehiculo>>> GetVehiculos([FromQuery] VehiculoEstado? estado)
+        {
+            var vehiculos = await _vehiculoRepository.GetAll(estado);
+
+            return Ok(vehiculos);
+        }
+
 
         /// <summary>
         /// Obtiene un vehículo por ID.

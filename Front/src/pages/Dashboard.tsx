@@ -16,6 +16,11 @@ import {
   Chip,
   ToggleButtonGroup,
   ToggleButton,
+  Snackbar,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
@@ -76,7 +81,43 @@ function Dashboard() {
   const [hasSearched, setHasSearched] = useState(false)
   const [tab, setTab] = useState(0)
   const [branchStatusFilter, setBranchStatusFilter] = useState<BranchStatus | 'all'>('all')
+  const [actionToast, setActionToast] = useState<{
+    open: boolean
+    message: string
+    severity: 'success' | 'info' | 'warning' | 'error'
+  }>({ open: false, message: '', severity: 'success' })
+  const [vehicleStatusFilter, setVehicleStatusFilter] = useState<string>('Disponible');
+  
+  const showActionToast = (
+    message: string,
+    severity: 'success' | 'info' | 'warning' | 'error' = 'success',
+  ) => {
+    setActionToast({ open: true, message, severity })
+  }
 
+  const closeActionToast = () => {
+    setActionToast((prev) => ({ ...prev, open: false, message: '' }))
+  }
+
+
+  useEffect(() => {
+  const fetchVehicles = async () => {
+    if (tab === 1) { // Asumiendo que la pestaña 1 es la de vehículos
+      setLoading(true);
+      try {
+        // Pasamos el string del estado por query param
+        const response = await vehicleService.getAllVehiclesByStatus(vehicleStatusFilter);
+        setVehicles(response);
+      } catch (err) {
+        setError('Error al cargar vehículos');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  fetchVehicles();
+}, [tab, vehicleStatusFilter]);
   // Retornar si no hay usuario (evitar errores)
   if (!user) {
     return <CircularProgress />
@@ -129,7 +170,7 @@ function Dashboard() {
     try {
       const [shipmentsData, vehiclesData, branchesData] = await Promise.all([
         shipmentService.getAllShipments(),
-        vehicleService.getAllVehicles(),
+        vehicleService.getAllVehiclesByStatus("Disponible"),
         branchService.getAllBranches(),
       ])
       setShipments(shipmentsData)
@@ -180,10 +221,14 @@ function Dashboard() {
       if (newShipment) {
         setShipments((prev) => [newShipment, ...prev])
         setFilteredShipments((prev) => [newShipment, ...prev])
+        showActionToast('Envío creado correctamente', 'success')
+        setOpenShipmentForm(false)
+        return
       }
-      setOpenShipmentForm(false)
+      throw new Error('No se pudo crear el envío')
     } catch (err) {
-      setError('Error al crear el envío')
+      showActionToast('Error al crear el envío', 'error')
+      throw err
     }
   }
 
@@ -191,21 +236,24 @@ function Dashboard() {
     try {
       const newVehicle = await vehicleService.createVehicle(vehicle)
       setVehicles((prev) => [newVehicle, ...prev])
+      showActionToast('Vehículo creado correctamente', 'success')
       setOpenVehicleForm(false)
     } catch (err) {
-      setError('Error al crear el vehículo')
+      showActionToast('Error al crear el vehículo', 'error')
+      throw err
     }
   }
 
   const handleCreateBranch = (branch: Branch) => {
     setBranches((prev) => [branch, ...prev])
+    showActionToast('Sucursal creada correctamente', 'success')
     setOpenBranchForm(false)
   }
 
   // Descargar envíos como CSV
   const handleDownloadShipments = () => {
     if (shipments.length === 0) {
-      alert('No hay envíos para descargar')
+      showActionToast('No hay envíos para descargar', 'warning')
       return
     }
 
@@ -228,7 +276,7 @@ function Dashboard() {
     // Crear contenido CSV
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(';')),
     ].join('\n')
 
     // Descargar archivo
@@ -239,6 +287,7 @@ function Dashboard() {
     document.body.appendChild(element)
     element.click()
     document.body.removeChild(element)
+    showActionToast('CSV descargado correctamente', 'info')
   }
 
   return (
@@ -385,76 +434,102 @@ function Dashboard() {
           {/* TAB VEHICULOS */}
           {tab === 1 && (
             <Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6">Mis Vehículos</Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => setOpenVehicleForm(true)}
-                >
-                  Registrar vehículo
-                </Button>
-              </Box>
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
-                  <CircularProgress />
-                </Box>
-              ) : vehicles.length === 0 ? (
-                <Alert severity="info">No tienes vehículos registrados</Alert>
-              ) : (
-                <Grid container spacing={3}>
-                  {vehicles.map((vehicle) => (
-                    <Grid item xs={12} sm={6} md={4} lg={3} key={vehicle.id} sx={{ display: 'flex' }}>
-                      <Card sx={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-                        <CardContent sx={{ flex: 1 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                              <DirectionsCarIcon color="primary" fontSize="small" />
-                              <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>
-                                {vehicle.patente}
-                              </Typography>
-                            </Box>
-                            <VehicleEstadoChip estado={vehicle.estado} />
-                          </Box>
-                          <Stack spacing={1}>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                Marca
-                              </Typography>
-                              <Typography variant="body2">{vehicle.marca}</Typography>
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                Capacidad de carga
-                              </Typography>
-                              <Typography variant="body2">{vehicle.capacidadCarga} kg</Typography>
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                Rutas asignadas
-                              </Typography>
-                              <Typography variant="body2" fontWeight={700}>
-                                {vehicle.assignedRouteIds?.length ?? 0}
-                              </Typography>
-                            </Box>
-                          </Stack>
-                        </CardContent>
-                        <CardActions sx={{ pt: 0, px: 2, pb: 1.5 }}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            fullWidth
-                            onClick={() => navigate(`/vehiculo/${vehicle.id}`)}
-                          >
-                            Ver detalle
-                          </Button>
-                        </CardActions>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              )}
-            </Box>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+      <Typography variant="h6">Mis Vehículos</Typography>
+      
+      {/* Contenedor para los controles de la derecha */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        {/* Selector de Estado */}
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel id="filtro-estado-label">Estado</InputLabel>
+          <Select
+            labelId="filtro-estado-label"
+            id="filtro-estado-select"
+            label="Estado"
+            value={vehicleStatusFilter}
+            onChange={(e) => setVehicleStatusFilter(e.target.value as string)}
+          >
+            <MenuItem value="Disponible">Disponible</MenuItem>
+            <MenuItem value="EnUso">En Uso</MenuItem>
+            <MenuItem value="Mantenimiento">Mantenimiento</MenuItem>
+            <MenuItem value="Suspendido">Suspendido</MenuItem>
+          </Select>
+        </FormControl>
+
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setOpenVehicleForm(true)}
+        >
+          Registrar vehículo
+        </Button>
+      </Box>
+    </Box>
+
+    {loading ? (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+        <CircularProgress />
+      </Box>
+    ) : vehicles.length === 0 ? (
+      <Alert severity="info" sx={{ mt: 2 }}>
+        {` No se encontraron vehiculos`}
+      </Alert>
+    ) : (
+      <Box>
+        <Grid container spacing={3}>
+          {vehicles.map((vehicle) => (
+            <Grid item xs={12} sm={6} md={4} lg={3} key={vehicle.id} sx={{ display: 'flex' }}>
+              <Card sx={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardContent sx={{ flex: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      <DirectionsCarIcon color="primary" fontSize="small" />
+                      <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>
+                        {vehicle.patente}
+                      </Typography>
+                    </Box>
+                    <VehicleEstadoChip estado={vehicle.estado} />
+                  </Box>
+                  <Stack spacing={1}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                        Marca
+                      </Typography>
+                      <Typography variant="body2">{vehicle.marca}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                        Capacidad de carga
+                      </Typography>
+                      <Typography variant="body2">{vehicle.capacidadCarga} kg</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                        Rutas asignadas
+                      </Typography>
+                      <Typography variant="body2" fontWeight={700}>
+                        {vehicle.assignedRouteIds?.length ?? 0}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </CardContent>
+                <CardActions sx={{ pt: 0, px: 2, pb: 1.5 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    fullWidth
+                    onClick={() => navigate(`/vehiculo/${vehicle.id}`)}
+                  >
+                    Ver detalle
+                  </Button>
+                </CardActions>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
+    )}
+  </Box>
           )}
 
           {/* TAB SUCURSALES */}
@@ -504,6 +579,22 @@ function Dashboard() {
         onClose={() => setOpenBranchForm(false)}
         onBranchCreated={handleCreateBranch}
       />
+
+      <Snackbar
+        open={actionToast.open}
+        autoHideDuration={3500}
+        onClose={closeActionToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          severity={actionToast.severity}
+          variant="filled"
+          onClose={closeActionToast}
+          sx={{ width: '100%' }}
+        >
+          {actionToast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

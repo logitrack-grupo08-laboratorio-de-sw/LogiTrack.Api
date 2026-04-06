@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using Back.Application.Services;
 using Back.Application.Util;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +20,7 @@ namespace Back.Domain.Models
         public double Peso { get; set; }
         public double Altura { get; set; }
         public double Ancho { get; set; }
+        [JsonIgnore]
         public float Prioridad { get; set; }
         public DateTime CreadoEn { get; init; } = DateTime.UtcNow;
         public PaqueteStatus Status { get; private set; } = PaqueteStatus.EnSucursal;
@@ -26,14 +29,25 @@ namespace Back.Domain.Models
         public string DestinatarioCompleto => $"{Destinatario.Nombre} {Destinatario.Apellido}";
         public string? Descripcion { get; set; } = string.Empty;
         public string? RazonCancelacion { get; private set; }
+        public float Distancia { get; set; } = 0;
+
+
+        [JsonPropertyName("prioridad")]
+        public string PrioridadNivel => Prioridad switch
+        {
+            >= 6 => "Alta",
+            >= 3 => "Media",
+            _ => "Baja"
+        };
 
         public bool EstaEnSucursal => Status == PaqueteStatus.EnSucursal;
+
 
         private Paquete()
         {
         }
 
-        public Paquete(double peso, double altura, double ancho, Cliente origen, Cliente destino, float prioridad, string? descripcion)
+        public Paquete(double peso, double altura, double ancho, Cliente origen, Cliente destino, float prioridad,float distancia, string? descripcion)
         {
             Peso = peso;
             Altura = altura;
@@ -42,10 +56,11 @@ namespace Back.Domain.Models
             Remitente = origen;
             Destinatario = destino;
             Descripcion = descripcion;
+            Distancia = distancia;
         }
 
-        public Paquete(string codigoSeguimiento, double peso, double altura, double ancho, Cliente origen, Cliente destino, float prioridad,string? descripcion)
-            : this(peso, altura, ancho, origen, destino, prioridad, descripcion)
+        public Paquete(string codigoSeguimiento, double peso, double altura, double ancho, Cliente origen, Cliente destino, float prioridad,float distancia, string? descripcion)
+            : this(peso, altura, ancho, origen, destino, prioridad, distancia, descripcion)
         {
             CodigoSeguimiento = codigoSeguimiento;
         }

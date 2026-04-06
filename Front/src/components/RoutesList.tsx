@@ -26,6 +26,7 @@ import {
   OutlinedInput,
   Checkbox,
   ListItemText,
+  Snackbar,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd'
@@ -70,6 +71,23 @@ function RoutesList({ userRole }: RoutesListProps) {
   const [form, setForm] = useState<RouteFormState>(initialForm)
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [toast, setToast] = useState<{
+    open: boolean
+    message: string
+    severity: 'success' | 'info' | 'warning' | 'error'
+  }>({ open: false, message: '', severity: 'success' })
+
+  const showToast = (
+    message: string,
+    severity: 'success' | 'info' | 'warning' | 'error' = 'success',
+  ) => {
+    setToast({ open: true, message, severity })
+  }
+
+  const closeToast = () => {
+    setToast((prev) => ({ ...prev, open: false, message: '' }))
+    setFormError('')
+  }
 
   const activeTransportistas = useMemo(
     () => transportistas.filter((transportista) => (transportista.estado ?? 'Activo') === 'Activo'),
@@ -156,8 +174,10 @@ const handleOpenCreateDialog = () => {
       })
       await loadRoutes()
       handleCloseCreateDialog()
+      showToast('Ruta creada correctamente', 'success')
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'No se pudo crear la ruta.')
+      showToast(err instanceof Error ? err.message : 'No se pudo crear la ruta.', 'error')
     } finally {
       setSubmitting(false)
     }
@@ -189,8 +209,10 @@ const handleOpenCreateDialog = () => {
       applyStatusFilter(updatedRoutes, selectedStatus)
       setAssignDialogRoute(null)
       setSelectedTransportistId('')
+      showToast('Transportista reasignado correctamente', 'info')
     } catch {
       setFormError('No se pudo asignar el transportista.')
+      showToast('No se pudo asignar el transportista.', 'error')
     } finally {
       setSubmitting(false)
     }
@@ -445,6 +467,22 @@ const handleOpenCreateDialog = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={3500}
+        onClose={closeToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          severity={toast.severity}
+          variant="filled"
+          onClose={closeToast}
+          sx={{ width: '100%' }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

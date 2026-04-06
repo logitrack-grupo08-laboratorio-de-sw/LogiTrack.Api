@@ -1,4 +1,5 @@
 using Back.Application.Services;
+using Back.Application.Abstractions;
 using Back.Domain.Repositories;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -9,6 +10,9 @@ using System.Reflection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.Extensions.ML;
+using Back.Ml.Service;
+using Back.Background;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,7 +58,12 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<EnviosService>();
 builder.Services.AddScoped<RutasService>();
 builder.Services.AddScoped<DatabaseSeeder>();
-
+builder.Services.AddHttpClient<IRecaptchaValidationService, GoogleRecaptchaValidationService>();
+// Registrar el HttpClient
+builder.Services.AddHttpClient();
+builder.Services.AddHealthChecks();
+// Registrar el servicio de fondo
+builder.Services.AddHostedService<UptimerService>();
 builder.Services.AddScoped<IUserRepository, UsuariosRepository>();
 builder.Services.AddScoped<IEnviosRepository, EnviosRepository>();
 builder.Services.AddScoped<IVehiculoRepository, VehiculosRepository>();
@@ -63,6 +72,13 @@ builder.Services.AddScoped<IRutasRepository, RutasRepository>();
 // Configuración de Autenticación JWT
 var jwtSecretKey = "Grupo8SuperSecretKeyWithAtLeast32Characters";
 var key = Encoding.ASCII.GetBytes(jwtSecretKey);
+
+string rootPath = AppContext.BaseDirectory;
+string modelz = Path.Combine(rootPath, "ML","Models", "prioridad_model.zip");
+
+builder.Services.AddPredictionEnginePool<PaqueteData, PrioridadPrediction>().FromFile(modelz);
+
+builder.Services.AddScoped<IMLPrioridadPrediction, MLNetPrioridadService>();
 
 builder.Services
     .AddAuthentication(options =>
@@ -89,6 +105,7 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+
 // --- CONFIGURACIÓN DEL PIPELINE DE PETICIONES (HTTP Request Pipeline) ---
 
 // 1. Swagger siempre disponible al inicio
@@ -107,6 +124,7 @@ app.UseAuthorization();
 
 // 5. Mapeo de Controladores
 app.MapControllers();
+app.MapHealthChecks("api/health");
 
 // --- TAREAS DE INICIO (Migraciones y Seed) ---
 
@@ -132,14 +150,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.Run();// Verificar existencia del modelo de ML en ruta relativa para despliegue
 
-var modelPath = Path.Combine(AppContext.BaseDirectory, "ML", "Models", "prioridad_model.zip");
-if (File.Exists(modelPath))
-{
-    Console.WriteLine($"Modelo de ML encontrado en: {modelPath}");
-}
-else
-{
-    Console.WriteLine("Advertencia: No se encontró el archivo del modelo de ML en la ruta esperada.");
-}
+ 
+app.Run();// Verificar existencia del modelo de ML en ruta relativa para despliegue

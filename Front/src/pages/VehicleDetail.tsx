@@ -111,6 +111,10 @@ export default function VehicleDetail() {
     severity: 'success' | 'error' | 'warning' | 'info' = 'success',
   ) => setSnackbar({ open: true, message, severity })
 
+  const closeSnackbar = () => {
+    setSnackbar((prev) => ({ ...prev, open: false, message: '' }))
+  }
+
   useEffect(() => {
     if (id) loadData(id)
   }, [id])
@@ -119,7 +123,7 @@ export default function VehicleDetail() {
     setLoading(true)
     try {
       const [v, allRoutes] = await Promise.all([
-        vehicleService.getVehicleById(vehicleId),
+        vehicleService.getVehiculoById(vehicleId),
         routeService.getAllRoutes(),
       ])
       if (!v) {
@@ -155,7 +159,7 @@ export default function VehicleDetail() {
     try {
       const result = await vehicleService.changeVehicleStatus(vehicle.id, newEstado)
       if (result.success) {
-        showSnackbar(`Estado cambiado a "${newEstado}" correctamente`, 'success')
+        showSnackbar(`Estado cambiado a "${newEstado}" correctamente`, 'info')
         // Recargar datos
         if (id) await loadData(id)
       } else {
@@ -175,7 +179,7 @@ export default function VehicleDetail() {
     try {
       const result = await vehicleService.changeVehicleStatus(vehicle.id, 'Suspendido')
       if (result.success) {
-        showSnackbar('Vehículo suspendido correctamente', 'success')
+        showSnackbar('Vehículo suspendido correctamente', 'warning')
         navigate(-1)
       } else {
         showSnackbar(result.error || 'Error al suspender el vehículo', 'error')
@@ -642,11 +646,11 @@ export default function VehicleDetail() {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3500}
-        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        onClose={closeSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert
-          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+          onClose={closeSnackbar}
           severity={snackbar.severity}
           variant="filled"
           sx={{ width: '100%' }}

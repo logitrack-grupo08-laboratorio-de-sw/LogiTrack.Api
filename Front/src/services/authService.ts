@@ -19,7 +19,8 @@ export const authService = {
     try {
       const response = await api.post('/auth/login', {
         Email: credentials.email,
-        Password: credentials.password
+        Password: credentials.password,
+        RecaptchaToken: credentials.recaptchaToken,
       })
 
       const token = response.data.token
@@ -42,14 +43,35 @@ export const authService = {
 
       console.log('✓ Login exitoso:', user)
       return user
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error)
-      return null
+
+      const status = error?.response?.status
+      const responseData = error?.response?.data
+      const unauthorizedByMessage =
+        (typeof responseData === 'string' && /unauthorized|no autorizado/i.test(responseData)) ||
+        /unauthorized|no autorizado/i.test(String(error?.message || ''))
+
+      if (status === 401) {
+        return null
+      }
+
+      if (unauthorizedByMessage) {
+        return null
+      }
+
+      const errorMessage =
+        (typeof responseData === 'string' && responseData) ||
+        responseData?.message ||
+        error?.message ||
+        'Error al iniciar sesión'
+
+      throw new Error(errorMessage)
     }
   },
 
   // Registro
-  register: async (data: RegisterData): Promise<User | null> => {
+  register: async (data: RegisterData): Promise<boolean> => {
     try {
       const roleMap = {
         supervisor: 'Supervisor',
@@ -57,8 +79,7 @@ export const authService = {
       } as const
 
       if (data.role === 'transportista') {
-        console.error('Transportista public registration is disabled')
-        return null
+        throw new Error('El rol transportista no está habilitado para registro público')
       }
 
       await api.post('/auth/registrarse', {
@@ -70,12 +91,15 @@ export const authService = {
         Role: roleMap[data.role as 'supervisor' | 'operador']
       })
 
-      // Después del registro, hacer login automáticamente
-      return await authService.login({ email: data.email, password: data.password })
+      return true
     } catch (error: any) {
       console.error('Register error:', error)
       const errorMessage =
-        error?.response?.data || error?.message || 'Error al registrarse'
+        (typeof error?.response?.data === 'string' && error.response.data) ||
+        error?.response?.data?.message ||
+        error?.message ||
+        'Error al registrarse'
+
       throw new Error(errorMessage)
     }
   },

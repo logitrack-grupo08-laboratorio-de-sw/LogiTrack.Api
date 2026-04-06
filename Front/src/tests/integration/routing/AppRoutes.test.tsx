@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../../pages/landing/LandingPage', () => ({ default: () => <div>LANDING_PAGE</div> }))
 vi.mock('../../../pages/LoginPage', () => ({ default: () => <div>LOGIN_PAGE</div> }))
@@ -21,13 +21,46 @@ describe('App route guards', () => {
     window.history.pushState({}, '', '/app')
   })
 
-  it('CP-11 bloquea acceso a ruta privada sin sesion y redirige al flujo publico', async () => {
-    render(<App />)
-
-    expect(await screen.findByText('LANDING_PAGE')).toBeInTheDocument()
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
-  it('CP-12 pendiente funcional: expiracion de sesion no esta implementada en App', () => {
-    expect(true).toBe(true)
+  it('CP-11 bloquea acceso a ruta privada sin sesion y redirige a login', async () => {
+    render(<App />)
+
+    expect(await screen.findByText('LOGIN_PAGE')).toBeInTheDocument()
+  })
+
+  it('CP-12 expira sesion por inactividad y obliga a volver a iniciar sesion', async () => {
+    vi.useFakeTimers()
+
+    localStorage.setItem('authToken', 'jwt-token')
+    localStorage.setItem(
+      'user',
+      JSON.stringify({
+        id: 'u-1',
+        name: 'Florencia',
+        lastname: 'Paez',
+        email: 'florencia@gmail.com',
+        dni: '12345678',
+        role: 'operador',
+      }),
+    )
+
+    render(<App />)
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('LAYOUT_WRAPPER')).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(15 * 60 * 1000 + 1)
+    })
+
+    expect(screen.getByText('LOGIN_PAGE')).toBeInTheDocument()
+    expect(localStorage.getItem('authToken')).toBeNull()
+    expect(localStorage.getItem('user')).toBeNull()
   })
 })

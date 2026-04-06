@@ -88,6 +88,7 @@ export interface Shipment {
 export interface LoginCredentials {
   email: string
   password: string
+  recaptchaToken: string
 }
 
 export interface RegisterData {

@@ -18,6 +18,7 @@ import {
   Select,
   MenuItem,
   Alert,
+  Snackbar,
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import { shipmentService } from '../services/shipmentService'
@@ -34,8 +35,22 @@ function ShipmentDetail() {
   const [newStatus, setNewStatus] = useState<Shipment['status']>('En tránsito')
   const [cancellationReason, setCancellationReason] = useState('')
   const [updatingStatus, setUpdatingStatus] = useState(false)
-  const [showStatusMessage, setShowStatusMessage] = useState(false)
-  const [statusMessage, setStatusMessage] = useState('')
+  const [actionToast, setActionToast] = useState<{
+    open: boolean
+    message: string
+    severity: 'success' | 'info' | 'warning' | 'error'
+  }>({ open: false, message: '', severity: 'success' })
+
+  const showActionToast = (
+    message: string,
+    severity: 'success' | 'info' | 'warning' | 'error' = 'success',
+  ) => {
+    setActionToast({ open: true, message, severity })
+  }
+
+  const closeActionToast = () => {
+    setActionToast((prev) => ({ ...prev, open: false, message: '' }))
+  }
 
   // Solo supervisor y transportista pueden cambiar estados
   const canUserChangeStatus = user?.role === 'supervisor' || user?.role === 'transportista'
@@ -111,30 +126,29 @@ function ShipmentDetail() {
 
     // Validar que el usuario tenga permisos
     if (!canUserChangeStatus) {
-      setError('No tienes permiso para cambiar el estado de este envío')
+      showActionToast('No tienes permiso para cambiar el estado de este envío', 'error')
       return
     }
 
     // Validar transición de estado
     if (!canChangeStatus(shipment.status)) {
-      setError(getStatusChangeErrorMessage())
+      showActionToast(getStatusChangeErrorMessage(), 'error')
       return
     }
 
     const allowedTransitions = getAllowedTransitions(shipment.status)
     if (!allowedTransitions.includes(newStatus)) {
-      setError('Transición de estado no válida para el estado actual del envío')
+      showActionToast('Transición de estado no válida para el estado actual del envío', 'error')
       return
     }
 
     // Validar motivo de cancelación
     if (newStatus === 'Cancelado' && !cancellationReason.trim()) {
-      setError('El motivo de cancelación es requerido')
+      showActionToast('El motivo de cancelación es requerido', 'warning')
       return
     }
 
     setUpdatingStatus(true)
-    setError('')
     try {
       let result: { success: boolean; error?: string }
 
@@ -153,25 +167,21 @@ function ShipmentDetail() {
           setShipment(updated)
         }
 
-        // Si cambia a Entregado, mostrar mensaje y cerrar después de 3 segundos
-        if (newStatus === 'Entregado') {
-          setStatusMessage('✓ Envío marcado como Entregado. No se puede modificar su estado.')
-          setShowStatusMessage(true)
+        setOpenStatusDialog(false)
+        setCancellationReason('')
 
-          setTimeout(() => {
-            setOpenStatusDialog(false)
-            setShowStatusMessage(false)
-            setCancellationReason('')
-          }, 3000)
+        if (newStatus === 'Entregado') {
+          showActionToast('Envío marcado como Entregado. No se puede modificar su estado.', 'success')
+        } else if (newStatus === 'Cancelado') {
+          showActionToast('Envío cancelado correctamente', 'warning')
         } else {
-          setOpenStatusDialog(false)
-          setCancellationReason('')
+          showActionToast(`Estado actualizado a ${newStatus}`, 'info')
         }
       } else {
-        setError(result.error || 'Error al actualizar el estado')
+        showActionToast(result.error || 'Error al actualizar el estado', 'error')
       }
     } catch (err) {
-      setError('Error de conexión al actualizar el estado')
+      showActionToast('Error de conexión al actualizar el estado', 'error')
     } finally {
       setUpdatingStatus(false)
     }
@@ -182,7 +192,6 @@ function ShipmentDetail() {
     if (!id || !shipment) return
 
     setUpdatingStatus(true)
-    setError('')
     try {
       const result = await shipmentService.resendCancelledShipment(id)
       if (result.success) {
@@ -190,18 +199,12 @@ function ShipmentDetail() {
         if (updated) {
           setShipment(updated)
         }
-        setStatusMessage('✓ Envío reenviado correctamente. Estado: En sucursal')
-        setShowStatusMessage(true)
-
-        // Limpiar mensaje después de 2 segundos
-        setTimeout(() => {
-          setShowStatusMessage(false)
-        }, 2000)
+        showActionToast('Envío reenviado correctamente. Estado: En sucursal', 'success')
       } else {
-        setError(result.error || 'Error al reenviar el envío')
+        showActionToast(result.error || 'Error al reenviar el envío', 'error')
       }
     } catch (err) {
-      setError('Error de conexión al reenviar el envío')
+      showActionToast('Error de conexión al reenviar el envío', 'error')
     } finally {
       setUpdatingStatus(false)
     }
@@ -296,13 +299,6 @@ function ShipmentDetail() {
             </Stack>
           </CardContent>
         </Card>
-      )}
-
-      {/* Mensaje de éxito */}
-      {showStatusMessage && (
-        <Alert severity="success" sx={{ mb: 3 }}>
-          {statusMessage}
-        </Alert>
       )}
 
       {/* Mensaje de error */}
@@ -497,82 +493,88 @@ function ShipmentDetail() {
       <Dialog open={openStatusDialog} onClose={() => {
         if (!updatingStatus) {
           setOpenStatusDialog(false)
-          setShowStatusMessage(false)
           setCancellationReason('')
         }
       }}>
         <DialogTitle>Cambiar estado del envío</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          {showStatusMessage ? (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              {statusMessage}
-            </Alert>
-          ) : (
-            <>
-              <Select
-                value={newStatus}
-                onChange={(e) => {
-                  setNewStatus(e.target.value as Shipment['status'])
-                  if (e.target.value !== 'Cancelado') {
-                    setCancellationReason('')
-                  }
-                }}
+          <>
+            <Select
+              value={newStatus}
+              onChange={(e) => {
+                setNewStatus(e.target.value as Shipment['status'])
+                if (e.target.value !== 'Cancelado') {
+                  setCancellationReason('')
+                }
+              }}
+              fullWidth
+              disabled={!canChangeStatus(shipment.status) || updatingStatus || allowedTransitions.length === 0}
+            >
+              {allowedTransitions.map((status) => (
+                <MenuItem key={status} value={status}>{status}</MenuItem>
+              ))}
+            </Select>
+
+            {allowedTransitions.length === 0 && (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                No hay transiciones disponibles para el estado actual.
+              </Alert>
+            )}
+
+            {newStatus === 'Cancelado' && (
+              <TextField
+                label="Motivo de cancelación"
+                value={cancellationReason}
+                onChange={(e) => setCancellationReason(e.target.value)}
                 fullWidth
-                disabled={!canChangeStatus(shipment.status) || updatingStatus || allowedTransitions.length === 0}
-              >
-                {allowedTransitions.map((status) => (
-                  <MenuItem key={status} value={status}>{status}</MenuItem>
-                ))}
-              </Select>
+                multiline
+                rows={3}
+                placeholder="Por favor, especifica el motivo de la cancelación"
+                sx={{ mt: 2 }}
+                disabled={updatingStatus}
+              />
+            )}
 
-              {allowedTransitions.length === 0 && (
-                <Alert severity="info" sx={{ mt: 2 }}>
-                  No hay transiciones disponibles para el estado actual.
-                </Alert>
-              )}
-
-              {newStatus === 'Cancelado' && (
-                <TextField
-                  label="Motivo de cancelación"
-                  value={cancellationReason}
-                  onChange={(e) => setCancellationReason(e.target.value)}
-                  fullWidth
-                  multiline
-                  rows={3}
-                  placeholder="Por favor, especifica el motivo de la cancelación"
-                  sx={{ mt: 2 }}
-                  disabled={updatingStatus}
-                />
-              )}
-
-              {newStatus === 'Entregado' && (
-                <Alert severity="info" sx={{ mt: 2 }}>
-                  ⚠️ <strong>Importante:</strong> Una vez que marques este envío como Entregado, 
-                  no podrás cambiar su estado nuevamente.
-                </Alert>
-              )}
-            </>
-          )}
+            {newStatus === 'Entregado' && (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                ⚠️ <strong>Importante:</strong> Una vez que marques este envío como Entregado,
+                no podrás cambiar su estado nuevamente.
+              </Alert>
+            )}
+          </>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => {
             setOpenStatusDialog(false)
-            setShowStatusMessage(false)
             setCancellationReason('')
           }} disabled={updatingStatus}>
             Cerrar
           </Button>
-          {!showStatusMessage && (
-            <Button
-              onClick={handleUpdateStatus}
-              variant="contained"
-              disabled={updatingStatus}
-            >
-              {updatingStatus ? <CircularProgress size={24} /> : 'Actualizar'}
-            </Button>
-          )}
+          <Button
+            onClick={handleUpdateStatus}
+            variant="contained"
+            disabled={updatingStatus}
+          >
+            {updatingStatus ? <CircularProgress size={24} /> : 'Actualizar'}
+          </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={actionToast.open}
+        autoHideDuration={3500}
+        onClose={closeActionToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          severity={actionToast.severity}
+          variant="filled"
+          onClose={closeActionToast}
+          sx={{ width: '100%' }}
+        >
+          {actionToast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }
