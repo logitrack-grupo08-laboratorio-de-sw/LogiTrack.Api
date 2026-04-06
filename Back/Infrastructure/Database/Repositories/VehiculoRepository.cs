@@ -19,9 +19,12 @@ namespace Back.Infrastructure.Database.Repositories
             await _context.Vehiculos.AddAsync(vehiculo);
         }
 
-        public async Task<List<Vehiculo>> GetAll()
+        public async Task<List<Vehiculo>> GetAll(VehiculoEstado? estado)
         {
-            return await _context.Vehiculos.ToListAsync();
+            if (estado == null)
+                return await _context.Vehiculos.ToListAsync();
+
+            return await _context.Vehiculos.Where(v => v.Estado == estado).ToListAsync();
         }
 
         public Task<Vehiculo?> GetVehiculo(Guid id)

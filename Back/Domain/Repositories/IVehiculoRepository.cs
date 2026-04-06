@@ -7,6 +7,6 @@ namespace Back.Domain.Repositories
         Task Add(Vehiculo vehiculo);
         Task<Vehiculo?> GetVehiculo(Guid id);
         Task<List<Vehiculo>> GetVehiculosActivos();
-        Task<List<Vehiculo>> GetAll();
+        Task<List<Vehiculo>> GetAll(VehiculoEstado? estado);
     }
 }
